@@ -1,9 +1,9 @@
-import mogoose from "mongoose";
+import mongoose from "mongoose";
 
-let cache = global.moogose;
+let cache = global.mongoose || {};
 
-if (!cache) {
-  cache = global.moogose = { conn: null, promise: null };
+if (!cache.conn) {
+  cache = global.mongoose = { conn: null, promise: null };
 }
 
 async function ConnectDB() {
