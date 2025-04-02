@@ -16,7 +16,7 @@ async function ConnectDB() {
       bufferCommands: false,
     };
 
-    cache.promise = mogoose
+    cache.promise = mongoose
       .connect(process.env.MONGO_URI, opts)
       .then((mongoose) => {
         return mongoose;
