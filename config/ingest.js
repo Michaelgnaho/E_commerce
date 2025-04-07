@@ -1,5 +1,4 @@
 import { Inngest } from "inngest";
-import { connect } from "mongoose";
 import ConnectDB from "./db";
 import User from "@/models/User";
 
@@ -10,34 +9,42 @@ export const inngest = new Inngest({ id: "my-app" });
 export const syncUserCreation = inngest.createFunction(
   { id: "sync-user-from-clerk" },
   { event: "clerk/user.created" },
-  async (event) => {
+  async ({ event }) => {
+    // Destructure `event` from the argument
     try {
-      // Check if event.data exists before destructuring
-      if (!event.data) {
-        console.error("Event data is undefined:", event);
-        return { error: "Event data is missing" };
+      // Access the nested event data
+      const clerkEventData = event.data; // This is the top-level Clerk event data
+      if (!clerkEventData) {
+        console.error("Clerk event data is undefined:", event);
+        return { error: "Clerk event data is missing" };
       }
 
       // Log the raw event for debugging
-      console.log("Received clerk/user.created event:", JSON.stringify(event));
+      console.log(
+        "Received clerk/user.created event:",
+        JSON.stringify(event, null, 2)
+      );
 
-      const { id, first_name, email_addresses, last_name, imageUrl } =
-        event.data;
+      // Extract user data from clerkEventData
+      const { id, first_name, email_addresses, last_name, image_url } =
+        clerkEventData;
 
       // Validate required fields
       if (!id || !email_addresses || !email_addresses.length) {
-        console.error("Missing required user data in event:", event.data);
+        console.error("Missing required user data:", clerkEventData);
         return { error: "Missing required user data" };
       }
 
       const userData = {
         _id: id,
-        name: `${first_name || ""} ${last_name || ""}`.trim(),
+        name: `${first_name || ""} ${last_name || ""}`.trim() || "Unnamed User",
         email: email_addresses[0].email_address,
-        imgUrl: imageUrl || "",
+        imgUrl: image_url || "", // Use image_url instead of imageUrl
       };
 
+      console.log("Connecting to MongoDB...");
       await ConnectDB();
+      console.log("MongoDB connected, processing user...");
 
       // Check if user already exists
       const existingUser = await User.findById(id);
@@ -63,42 +70,54 @@ export const syncUserCreation = inngest.createFunction(
   }
 );
 
-// inngest function to handle user update
+// Update syncUserUpdate similarly
 export const syncUserUpdate = inngest.createFunction(
   { id: "sync-user-update-from-clerk" },
   { event: "clerk/user.updated" },
-  async (event) => {
-    // Handle the event here
-    const { id, first_name, email_addresses, last_name, imageUrl } = event.data;
-    const userData = {
-      _id: id,
-      name: `${first_name} ${last_name}`,
-      email: email_addresses[0].email_address,
-      imgUrl: imageUrl,
-    };
+  async ({ event }) => {
+    try {
+      const clerkEventData = event.data;
+      if (!clerkEventData) {
+        console.error("Clerk event data is undefined:", event);
+        return { error: "Clerk event data is missing" };
+      }
 
-    await ConnectDB();
-    await User.findByIdAndUpdate(id, userData);
-    console.log("Event received:", event);
-    return event;
+      const { id, first_name, email_addresses, last_name, image_url } =
+        clerkEventData;
+      const userData = {
+        _id: id,
+        name: `${first_name || ""} ${last_name || ""}`.trim() || "Unnamed User",
+        email: email_addresses[0].email_address,
+        imgUrl: image_url || "",
+      };
+
+      await ConnectDB();
+      await User.findByIdAndUpdate(id, userData);
+      console.log("User updated:", event);
+      return event;
+    } catch (error) {
+      console.error("Error in syncUserUpdate:", error);
+      return { error: error.message };
+    }
   }
 );
 
-// inngest function to handle user deletion
+// Update syncUserDeletion similarly
 export const syncUserDeletion = inngest.createFunction(
   { id: "sync-user-deletion-from-clerk" },
   { event: "clerk/user.deleted" },
-  async (event) => {
+  async ({ event }) => {
     try {
-      // Check if we have the expected data
-      if (!event.data || !event.data.id) {
+      const clerkEventData = event.data;
+      if (!clerkEventData || !clerkEventData.id) {
         console.error("Missing required data in event:", event);
         return { error: "Missing required data" };
       }
 
-      const { id } = event.data;
+      const { id } = clerkEventData;
       await ConnectDB();
       await User.findByIdAndDelete(id);
+      console.log("User deleted:", id);
       return { success: true, id };
     } catch (error) {
       console.error("Error in syncUserDeletion:", error);
