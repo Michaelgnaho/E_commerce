@@ -23,6 +23,7 @@ async function ConnectDB() {
       });
   }
   cache.conn = await cache.promise;
+  console.log("MongoDB connected:", cache.conn.connection.db.databaseName);
   return cache.conn;
 }
 
