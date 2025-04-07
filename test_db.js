@@ -9,7 +9,7 @@ async function testConnection() {
   try {
     await ConnectDB();
     const testUser = await User.create({
-      _id: "test123",
+      _id: "test_michael",
       name: "Test User",
       email: "test@example.com",
       imgUrl: "https://example.com/test.jpg",
